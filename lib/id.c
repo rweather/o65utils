@@ -51,7 +51,7 @@ static o65_name_t const segment_names[] = {
     {O65_SEGID_TEXT,        ".text"     },
     {O65_SEGID_DATA,        ".data"     },
     {O65_SEGID_BSS,         ".bss"      },
-    {O65_SEGID_ZEROPAGE,    ".zeropage" },
+    {O65_SEGID_ZEROPAGE,    ".zp"       },
     {0,                     ""          }
 };
 
