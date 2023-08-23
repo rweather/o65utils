@@ -149,44 +149,39 @@ static int dump_segment
     (FILE *file, const char *name, const o65_header_t *header,
      o65_size_t base, o65_size_t len)
 {
-    uint8_t buf[16];
+    uint8_t *data = NULL;
+    o65_size_t posn;
 
-    /* Print the size of the segment */
+    /* Print the name and size of the segment */
     printf("\n%s: %lu bytes\n", name, (unsigned long)len);
 
+    /* Read the segment data */
+    if (o65_read_segment(file, &data, len) < 0)
+        return -1;
+
     /* Dump the contents of the segment */
-    while (len >= 16U) {
-        if (fread(buf, 1, 16, file) != 16)
-            return -1;
-        dump_hex_line(header, base, buf, 16);
+    posn = 0;
+    while ((len - posn) >= 16U) {
+        dump_hex_line(header, base, data + posn, 16);
         base += 16;
-        len -= 16;
+        posn += 16;
     }
-    if (len > 0U) {
-        if (fread(buf, 1, len, file) != len)
-            return -1;
-        dump_hex_line(header, base, buf, len);
+    if (posn < len) {
+        dump_hex_line(header, base, data + posn, len - posn);
     }
+    free(data);
     return 1;
 }
 
 static int dump_undefined_symbols(FILE *file, const o65_header_t *header)
 {
-    uint8_t buf[4];
     o65_size_t index;
     o65_size_t count;
     int result;
 
     /* Read the number of undefined symbols */
-    if ((header->mode & O65_MODE_32BIT) == 0) {
-        if (fread(buf, 1, 2, file) != 2)
-            return -1;
-        count = o65_read_uint16(buf);
-    } else {
-        if (fread(buf, 1, 4, file) != 2)
-            return -1;
-        count = o65_read_uint32(buf);
-    }
+    if (o65_read_count(file, header, &count) < 0)
+        return -1;
 
     /* This is easy if there are no undefined symbols */
     if (count == 0) {
@@ -278,7 +273,6 @@ static int dump_relocs
 static int dump_exported_symbols(FILE *file, const o65_header_t *header)
 {
     char segname[O65_NAME_MAX];
-    uint8_t buf[4];
     o65_size_t index;
     o65_size_t count;
     o65_size_t value;
@@ -286,15 +280,8 @@ static int dump_exported_symbols(FILE *file, const o65_header_t *header)
     int ch;
 
     /* Read the number of exported symbols */
-    if ((header->mode & O65_MODE_32BIT) == 0) {
-        if (fread(buf, 1, 2, file) != 2)
-            return -1;
-        count = o65_read_uint16(buf);
-    } else {
-        if (fread(buf, 1, 4, file) != 2)
-            return -1;
-        count = o65_read_uint32(buf);
-    }
+    if (o65_read_count(file, header, &count) < 0)
+        return -1;
 
     /* This is easy if there are no undefined symbols */
     if (count == 0) {
@@ -318,17 +305,12 @@ static int dump_exported_symbols(FILE *file, const o65_header_t *header)
         printf(", %s", segname);
 
         /* Dump the value for the symbol */
-        if ((header->mode & O65_MODE_32BIT) == 0) {
-            if (fread(buf, 1, 2, file) != 2)
-                return -1;
-            value = o65_read_uint16(buf);
+        if (o65_read_count(file, header, &value) < 0)
+            return -1;
+        if ((header->mode & O65_MODE_32BIT) == 0)
             printf(", 0x%04lx\n", (unsigned long)value);
-        } else {
-            if (fread(buf, 1, 4, file) != 2)
-                return -1;
-            value = o65_read_uint32(buf);
+        else
             printf(", 0x%08lx\n", (unsigned long)value);
-        }
     }
     return 1;
 }
@@ -362,9 +344,9 @@ static int dump_image(FILE *file, const o65_header_t *header)
     if (header->mode & O65_MODE_BSSZERO)
         printf(", bsszero");
     switch (header->mode & O65_MODE_ALIGN) {
-    case O65_MODE_ALIGN_8:   printf(", byte alignment"); break;
-    case O65_MODE_ALIGN_16:  printf(", word alignment"); break;
-    case O65_MODE_ALIGN_32:  printf(", long alignment"); break;
+    case O65_MODE_ALIGN_1:   printf(", byte alignment"); break;
+    case O65_MODE_ALIGN_2:   printf(", word alignment"); break;
+    case O65_MODE_ALIGN_4:   printf(", long alignment"); break;
     case O65_MODE_ALIGN_256: printf(", page alignment"); break;
     }
     printf(")\n");

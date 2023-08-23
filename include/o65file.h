@@ -79,9 +79,9 @@ typedef struct
 #define O65_MODE_CPU_80286  0x00E0  /**< CPU is 80286 */
 #define O65_MODE_CPU_65816  0x8000  /**< CPU is 65816 in 16-bit mode */
 #define O65_MODE_ALIGN      0x0003  /**< Bits that make up the alignment mode */
-#define O65_MODE_ALIGN_8    0x0000  /**< Byte alignment */
-#define O65_MODE_ALIGN_16   0x0001  /**< Word alignment */
-#define O65_MODE_ALIGN_32   0x0002  /**< Long word alignment */
+#define O65_MODE_ALIGN_1    0x0000  /**< Byte alignment */
+#define O65_MODE_ALIGN_2    0x0001  /**< Word alignment */
+#define O65_MODE_ALIGN_4    0x0002  /**< Long word alignment */
 #define O65_MODE_ALIGN_256  0x0003  /**< Page alignment */
 
 /** Maximum number of bytes in an option, including the length and type bytes */
@@ -153,6 +153,9 @@ typedef struct
 /** Maximum length of a CPU or segment name, including the terminating NUL. */
 #define O65_NAME_MAX        16
 
+/** Recommended maximum buffer length for the names of externals. */
+#define O65_STRING_MAX      256
+
 /**
  * @brief Reads a 16-bit value in little-endian byte order.
  *
@@ -163,13 +166,46 @@ typedef struct
 uint16_t o65_read_uint16(const uint8_t *buf);
 
 /**
+ * @brief Reads a 24-bit value in little-endian byte order.
+ *
+ * @param[in] buf Points to the three bytes to convert.
+ *
+ * @return The 24-bit value.
+ */
+uint32_t o65_read_uint24(const uint8_t *buf);
+
+/**
  * @brief Reads a 32-bit value in little-endian byte order.
  *
- * @param[in] buf Points to the two bytes to convert.
+ * @param[in] buf Points to the four bytes to convert.
  *
  * @return The 32-bit value.
  */
 uint32_t o65_read_uint32(const uint8_t *buf);
+
+/**
+ * @brief Writes a 16-bit value in little-endian byte order.
+ *
+ * @param[in] buf Points to the buffer to write to.
+ * @param[in] value The 16-bit value to write.
+ */
+void o65_write_uint16(uint8_t *buf, uint16_t value);
+
+/**
+ * @brief Writes a 24-bit value in little-endian byte order.
+ *
+ * @param[in] buf Points to the buffer to write to.
+ * @param[in] value The 24-bit value to write.
+ */
+void o65_write_uint24(uint8_t *buf, uint32_t value);
+
+/**
+ * @brief Writes a 32-bit value in little-endian byte order.
+ *
+ * @param[in] buf Points to the buffer to write to.
+ * @param[in] value The 32-bit value to write.
+ */
+void o65_write_uint32(uint8_t *buf, uint32_t value);
 
 /**
  * @brief Reads the header from a ".o65" file.
@@ -205,6 +241,52 @@ int o65_read_option(FILE *file, o65_option_t *option);
  */
 int o65_read_reloc
     (FILE *file, const o65_header_t *header, o65_reloc_t *reloc);
+
+/**
+ * @brief Reads the contents of the .text or .data segment from a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[out] data Returns a pointer to the data, which must be freed
+ * with free() when no longer required.
+ * @param[in] size Number of bytes in the segment.
+ *
+ * @return 1 if the segment was read, or -1 for unexpected EOF or a
+ * filesystem error.
+ */
+int o65_read_segment(FILE *file, uint8_t **data, o65_size_t size);
+
+/**
+ * @brief Reads a 16-bit or 32-bit count value from a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in] header Points to the file header information.
+ * @param[out] count Returns the count value that was read.
+ *
+ * @return 1 on success, or -1 for unexpected EOF or a filesystem error.
+ */
+int o65_read_count(FILE *file, const o65_header_t *header, o65_size_t *count);
+
+/**
+ * @brief Reads a NUL-terminated string from a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in] str Points to the buffer to receive the string.
+ * @param[in[ max_size Maximum size of the @a str buffer.
+ *
+ * @return 1 on success, 0 if the string was too long for @a str and
+ * had to be truncated, or -1 for unexpected EOF or a filesystem error.
+ */
+int o65_read_string(FILE *file, char *str, size_t max_size);
+
+/**
+ * @brief Gets the name of a CPU from the header mode bits.
+ *
+ * @param[in]  mode Mode bits from the ".o65" header.
+ * @param[out] name Returns the name of the CPU.
+ *
+ * @return Non-zero if the CPU name is recognized, or zero if unknown.
+ */
+int o65_read_string(FILE *file, char *str, size_t max_size);
 
 /**
  * @brief Gets the name of a CPU from the header mode bits.

@@ -25,3 +25,4 @@ include_directories(include)
 # Add the subdirectories.
 add_subdirectory(lib)
 add_subdirectory(dump)
+add_subdirectory(reloc)

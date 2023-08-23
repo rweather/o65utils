@@ -22,10 +22,17 @@
 
 #include "o65file.h"
 #include <string.h>
+#include <stdlib.h>
 
 uint16_t o65_read_uint16(const uint8_t *buf)
 {
     return buf[0] | (((uint16_t)(buf[1])) << 8);
+}
+
+uint32_t o65_read_uint24(const uint8_t *buf)
+{
+    return buf[0] | (((uint32_t)(buf[1])) << 8) |
+           (((uint32_t)(buf[2])) << 16);
 }
 
 uint32_t o65_read_uint32(const uint8_t *buf)
@@ -190,4 +197,57 @@ int o65_read_reloc
     default: break;
     }
     return 1;
+}
+
+int o65_read_segment(FILE *file, uint8_t **data, o65_size_t size)
+{
+    if (size) {
+        *data = (uint8_t *)malloc(size);
+        if (!(*data))
+            return -1;
+        if (fread(*data, 1, size, file) != size) {
+            free(*data);
+            return -1;
+        }
+        return 1;
+    } else {
+        *data = NULL;
+        return 1;
+    }
+}
+
+int o65_read_count(FILE *file, const o65_header_t *header, o65_size_t *count)
+{
+    uint8_t buf[4];
+    if ((header->mode & O65_MODE_32BIT) == 0) {
+        if (fread(buf, 1, 2, file) != 2)
+            return -1;
+        *count = o65_read_uint16(buf);
+    } else {
+        if (fread(buf, 1, 4, file) != 2)
+            return -1;
+        *count = o65_read_uint32(buf);
+    }
+    return 1;
+}
+
+int o65_read_string(FILE *file, char *str, size_t max_size)
+{
+    int ch;
+    size_t posn = 0;
+    int truncated = 0;
+    for (;;) {
+        ch = getc(file);
+        if (ch == EOF) {
+            return -1;
+        } else if (ch == 0) {
+            break;
+        } else if ((posn + 1) < max_size) {
+            str[posn++] = (char)ch;
+        } else {
+            truncated = 1;
+        }
+    }
+    str[posn] = '\0';
+    return truncated ? 0 : 1;
 }
