@@ -219,6 +219,22 @@ void o65_write_uint32(uint8_t *buf, uint32_t value);
 int o65_read_header(FILE *file, o65_header_t *header);
 
 /**
+ * @brief Writes a header to a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in,out] header The header details.
+ *
+ * @return 0 if the header was written, or -1 for a filesystem error.
+ *
+ * The "marker", "magic", and "version" fields can be left unassigned.
+ * This function will write the correct values for those bytes.
+ *
+ * The "mode" field may be modified to fix up section alignment,
+ * and to force 32-bit mode if the section sizes or CPU require it.
+ */
+int o65_write_header(FILE *file, o65_header_t *header);
+
+/**
  * @brief Reads a header option from a ".o65" file.
  *
  * @param[in] file File pointer.
@@ -230,17 +246,40 @@ int o65_read_header(FILE *file, o65_header_t *header);
 int o65_read_option(FILE *file, o65_option_t *option);
 
 /**
+ * @brief Writes a header option to a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in[ option The option information to write, or NULL to
+ * terminate the option list.
+ *
+ * @return 0 if the option was written, or -1 for a filesystem error.
+ */
+int o65_write_option(FILE *file, const o65_option_t *option);
+
+/**
  * @brief Reads a relocation declaration from a ".o65" file.
  *
  * @param[in] file File pointer.
  * @param[in] header File header, containing global relocation options.
- * @param[out] option Returns the relocation details on success.
+ * @param[out] reloc Returns the relocation details on success.
  *
  * @return 1 if the relocation was read, 0 if the relocation data is invalid,
  * or -1 for unexpected EOF or a filesystem error.
  */
 int o65_read_reloc
     (FILE *file, const o65_header_t *header, o65_reloc_t *reloc);
+
+/**
+ * @brief Writes a relocation declaration to a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in] header File header, containing global relocation options.
+ * @param[out] reloc The relocation details to write.
+ *
+ * @return 0 if the relocation was written, or -1 for a filesystem error.
+ */
+int o65_write_reloc
+    (FILE *file, const o65_header_t *header, const o65_reloc_t *reloc);
 
 /**
  * @brief Reads the contents of the .text or .data segment from a ".o65" file.
@@ -267,6 +306,17 @@ int o65_read_segment(FILE *file, uint8_t **data, o65_size_t size);
 int o65_read_count(FILE *file, const o65_header_t *header, o65_size_t *count);
 
 /**
+ * @brief Writes a 16-bit or 32-bit count value to a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in] header Points to the file header information.
+ * @param[in] count The count to write.
+ *
+ * @return 0 if the count was written, or -1 for a filesystem error.
+ */
+int o65_write_count(FILE *file, const o65_header_t *header, o65_size_t count);
+
+/**
  * @brief Reads a NUL-terminated string from a ".o65" file.
  *
  * @param[in] file File pointer.
@@ -279,14 +329,29 @@ int o65_read_count(FILE *file, const o65_header_t *header, o65_size_t *count);
 int o65_read_string(FILE *file, char *str, size_t max_size);
 
 /**
- * @brief Gets the name of a CPU from the header mode bits.
+ * @brief Writes a NUL-terminated string to a ".o65" file.
  *
- * @param[in]  mode Mode bits from the ".o65" header.
- * @param[out] name Returns the name of the CPU.
+ * @param[in] file File pointer.
+ * @param[in] str The string to write.
  *
- * @return Non-zero if the CPU name is recognized, or zero if unknown.
+ * @return 0 if the string was written, or -1 for a filesystem error.
  */
-int o65_read_string(FILE *file, char *str, size_t max_size);
+int o65_write_string(FILE *file, const char *str);
+
+/**
+ * @brief Writes an exported symbol definition to a ".o65" file.
+ *
+ * @param[in] file File pointer.
+ * @param[in] header Points to the file header information.
+ * @param[in] name The name of the symbol.
+ * @param[in] segID The segment identifier; e.g. O65_SEGID_TEXT.
+ * @param[in] offset The offset into the segment of the exported symbol.
+ *
+ * @return 0 if the symbol was written, or -1 for a filesystem error.
+ */
+int o65_write_exported_symbol
+    (FILE *file, const o65_header_t *header, const char *name,
+     uint8_t segID, o65_size_t offset);
 
 /**
  * @brief Gets the name of a CPU from the header mode bits.
