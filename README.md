@@ -7,6 +7,14 @@ binaries in the [o65 format](http://www.6502.org/users/andre/o65/).
 Building
 --------
 
+The `elf2o65` utility requires `libelf`.  If the development version
+of `libelf` is not installed, then `elf2o65` will not be built.
+On Ubuntu and similar systems, you can usually do this to install it:
+
+    sudo apt install libelf-dev
+
+Then configure and build the code as follows:
+
     mkdir build
     cd build
     cmake ..
@@ -72,6 +80,99 @@ characters.  The addresses may be in decimal, octal, or hexadecimal.
 
 If the input file contains multiple chained images, then only the first
 image will be relocated.  The rest of the chained images will be ignored.
+
+### elf2o65
+
+The `elf2o65` utility converts ELF files that have been generated with
+[llvm-mos](https://llvm-mos.org/) into `.o65` format.  Use it as follows:
+
+    elf2o65 hello.elf hello.o65
+
+The ELF file must have been created with a linker script that outputs the
+sections in a form that `elf2o65` can understand.  Arbitrary ELF files
+from llvm-mos will not work without modifications to the linker script.
+
+The "link" directory in this repository contains some example linker
+scripts.
+
+    mos-sim-clang -Os -Wl,-emit-relocs -Tlink.ld -o example example.c
+    elf2o65 example.elf example.o65
+
+Extensions to the .o65 format
+-----------------------------
+
+### ELF Machine Type
+
+The `elf2o65` utility adds an extension header option to the output file
+with option number 69 (decimal), corresponding to a capital letter 'E'
+in ASCII.  The option's payload consists of the ELF machine type and
+processor-specific flags.
+
+This option is needed because the CPU bits in the basic `.o65` header
+are insufficient to represent the full set of CPU's that are supported
+by llvm-mos.  The following is an example of an ELF machine option:
+
+    08 45 66 19 3B 00 00 00
+
+The first two bytes are the option length (8) and type (0x45 = 69 = 'E').
+The next two bytes are the ELF machine type in little-endian byte order
+(0x1966 = 6502).  The final four bytes are the ELF processor-specific flags
+in little-endian byte order (0x0000003B = 6502 generic, BCD instructions,
+65C02 extensions, R65C02 extensions, W65C02 extensions).
+
+See the llvm-mos [ELF Specification](https://llvm-mos.org/wiki/ELF_specification)
+for a full list of processor-specific flags for the 6502 machine family.
+The traditional CPU bits in the `.o65` header should be set to the closest
+historical match.
+
+The original `.o65` format has some support for non-6502 CPU's such as
+Z80, 6809, and so on.  Files that use those processor families could also
+make use of the ELF machine option if they like.  Refer to the ELF
+specification for the alternate processor family for the bits that
+are required.
+
+### Imaginary Registers
+
+The [llvm-mos](https://llvm-mos.org/) compiler framework allocates 32
+bytes of zero page memory for "imaginary registers".  These are used to
+help the compiler's register allocator and for function parameter passing.
+
+The `.o65` format already has a method for the operating system to
+allocate a contiguous region of zero page memory to a program.
+The imaginary registers can be placed in this region.  They will be
+unique to the program.
+
+If multiple programs are loaded by the operating system, they will
+each get their own copy of the imaginary registers.  This is the easiest
+option for operating systems that have no knowledge of llvm-mos
+calling conventions.
+
+However, the operating system may want to share the imaginary registers
+between multiple programs, or the operating system itself may provide
+system calls using the llvm-mos calling conventions.
+
+When using the `--hosted` command-line option, the `.o65` file will
+contain an external reference for `__IMAG_REGS` which the operating system
+must replace with the base address of the 32 shared imaginary registers
+in zero page memory.
+
+It is assumed that the 32 imaginary registers are contiguous starting
+at `__IMAG_REGS`.  This isn't the case on all platforms supported by llvm-mos.
+But this method is simpler and more compact than requiring the `.o65` program
+loader to handle separate external references for `__rc0`, `__rc1`, etc.
+
+On systems with non-contiguous imaginary registers, the program loader
+can add a special case to the handling of `LOW` relocations.
+If the relocation refers to the `__IMAG_REGS` external reference, then
+read the byte to be relocated, interpret it as an imaginary register
+number, and replace the byte with the actual imaginary register address.
+
+### Entry Point
+
+The entry point to the program is assumed to be the first byte in
+the text segment.  If this is not the case, then the `.o65` file
+must export a global symbol called `_start` with the address of
+the entry point.
 
 Contact
 -------

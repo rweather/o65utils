@@ -136,6 +136,17 @@ int o65_write_option(FILE *file, const o65_option_t *option)
     return 0;
 }
 
+void o65_set_string_option
+    (o65_option_t *option, uint8_t type, const char *value, size_t len)
+{
+    if (len >= sizeof(option->data))
+        len = sizeof(option->data) - 1;
+    memcpy(option->data, value, len);
+    option->data[len] = '\0';
+    option->len = len + 3;
+    option->type = type;
+}
+
 int o65_write_reloc
     (FILE *file, const o65_header_t *header, const o65_reloc_t *reloc)
 {

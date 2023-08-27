@@ -1,13 +1,9 @@
 #ifndef ELFMOS_H
 #define ELFMOS_H
 
-/* Include the standard ELF format definitions */
-
-#include <elf.h>
+/* This file is placed in the public domain */
 
 /* Codes from here: https://llvm-mos.org/wiki/ELF_specification */
-
-/* We use #ifndef just in case a future standard <elf.h> defines these */
 
 /* Machine types */
 #ifndef EM_MOS

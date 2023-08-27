@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
+include(CheckIncludeFiles)
+include(CheckLibraryExists)
 
 # Set the project name and version number.
 project(o65utils VERSION 0.1.0 LANGUAGES C)
@@ -19,6 +21,11 @@ set(CMAKE_C_FLAGS_RELEASE "-O2")
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+# Need libelf to build elf2o65.
+check_include_files(elf.h HAVE_ELF_H)
+check_include_files(libelf.h HAVE_LIBELF_H)
+check_library_exists(elf elf_begin "" HAVE_LIBELF)
+
 # Set up the main include directory.
 include_directories(include)
 
@@ -26,3 +33,6 @@ include_directories(include)
 add_subdirectory(lib)
 add_subdirectory(dump)
 add_subdirectory(reloc)
+if(HAVE_ELF_H AND HAVE_LIBELF_H AND HAVE_LIBELF)
+    add_subdirectory(elf2o65)
+endif()

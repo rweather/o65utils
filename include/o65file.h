@@ -84,7 +84,7 @@ typedef struct
 #define O65_MODE_ALIGN_4    0x0002  /**< Long word alignment */
 #define O65_MODE_ALIGN_256  0x0003  /**< Page alignment */
 
-/** Maximum number of bytes in an option, including the length and type bytes */
+/** Maximum number of bytes in an option, excluding the length and type bytes */
 #define O65_MAX_OPT_SIZE    255
 
 /**
@@ -94,7 +94,7 @@ typedef struct
 {
     uint8_t len;    /**< Length of the option, zero for end options */
     uint8_t type;   /**< Type of option */
-    uint8_t data[O65_MAX_OPT_SIZE]; /**< Data for the option */
+    uint8_t data[O65_MAX_OPT_SIZE - 2]; /**< Data for the option */
 
 } o65_option_t;
 
@@ -104,6 +104,9 @@ typedef struct
 #define O65_OPT_PROGRAM     2   /**< Name of the assembler or linker */
 #define O65_OPT_AUTHOR      3   /**< Name of the author */
 #define O65_OPT_CREATED     4   /**< Date and time that the file was created */
+
+/* Custom header options */
+#define O65_OPT_ELF_MACHINE 'E' /**< ELF machine type and flags */
 
 /* Operating system types */
 #define O65_OS_OSA65        1   /**< OSA/65 */
@@ -255,6 +258,18 @@ int o65_read_option(FILE *file, o65_option_t *option);
  * @return 0 if the option was written, or -1 for a filesystem error.
  */
 int o65_write_option(FILE *file, const o65_option_t *option);
+
+/**
+ * @brief Sets a header option to a string value.
+ *
+ * @param[out] option The header option to set.
+ * @param[in] type Option type.
+ * @param[in] value Points to the string value to set.
+ * @param[in] len Length of the string value in bytes, excluding the
+ * terminating NUL.
+ */
+void o65_set_string_option
+    (o65_option_t *option, uint8_t type, const char *value, size_t len);
 
 /**
  * @brief Reads a relocation declaration from a ".o65" file.

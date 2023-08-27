@@ -21,6 +21,7 @@
  */
 
 #include "o65file.h"
+#include "elfmos.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -135,6 +136,59 @@ static void dump_option(const o65_option_t *option)
     case O65_OPT_CREATED:
         printf("Created: ");
         dump_string(option->data, option->len - 2);
+        break;
+
+    case O65_OPT_ELF_MACHINE:
+        if (option->len >= 8 && option->data[0] == 0x66 &&
+                option->data[1] == 0x19) {
+            /* Dump the ELF MOS flags */
+            struct elf_mos_flag
+            {
+                uint32_t flag;
+                const char *name;
+            };
+            static struct elf_mos_flag const flags[] = {
+                {EM_MOS_6502,       "mos6502"},
+                {EM_MOS_6502_BCD,   "mos6502bcd"},
+                {EM_MOS_6502X,      "mos6502x"},
+                {EM_MOS_65C02,      "mos65c02"},
+                {EM_MOS_R65C02,     "mosr65c02"},
+                {EM_MOS_W65C02,     "mosw65c02"},
+                {EM_MOS_W65816,     "mosw65816"},
+                {EM_MOS_65EL02,     "mos65el02"},
+                {EM_MOS_65CE02,     "mos65ce02"},
+                {EM_MOS_HUC6280,    "moshuc6280"},
+                {EM_MOS_65DTV02,    "mos65dtv02"},
+                {EM_MOS_4510,       "mos4510"},
+                {EM_MOS_45GS02,     "mos45gs02"},
+                {0,                 0}
+            };
+            uint32_t elf_flags = o65_read_uint32(option->data + 2);
+            int index;
+            printf("ELF Machine: MOS Technologies\n");
+            printf("    ELF Machine Flags: 0x%lx", (unsigned long)elf_flags);
+            for (index = 0; flags[index].flag != 0; ++index) {
+                /* Print all of the flags that we recognize */
+                if (elf_flags & flags[index].flag) {
+                    printf(", %s", flags[index].name);
+                    elf_flags &= ~(flags[index].flag);
+                }
+            }
+            if (elf_flags != 0) {
+                /* We have some left-over flags; print them */
+                printf(", Other: 0x%lx", (unsigned long)elf_flags);
+            }
+        } else {
+            /* Not a 6502, so dump the options in hexadecimal */
+            if (option->len == 8) {
+                printf("ELF Machine: 0x%x\n", o65_read_uint16(option->data));
+                printf("    ELF Machine Flags: 0x%lx",
+                       (unsigned long)(o65_read_uint32(option->data + 2)));
+            } else {
+                printf("ELF Machine Option:");
+                dump_hex(option->data, option->len - 2);
+            }
+        }
         break;
 
     default:
