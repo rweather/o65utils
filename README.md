@@ -179,10 +179,16 @@ number, and replace the byte with the actual imaginary register address.
 
 ### Entry Point
 
-The entry point to the program is assumed to be the first byte in
-the text segment.  If this is not the case, then the `.o65` file
-must export a global symbol called `_start` with the address of
-the entry point.
+Program binaries in `.o65` format that are used by
+[GeckOS/A65](http://www.6502.org/users/andre/osa/index.html)
+export a global symbol called `main` for the entry point.  If this global
+symbol is not present, then the start of the text segment is assumed
+to be the entry point.
+
+Note that the `main()` function in a C program may not actually be at
+the entry point address.  There may be `crt0` logic that executes before
+`main()`.  If such logic exists, the `main` global symbol in a `.o65`
+file must be the `crt0` entry point, not the address of the `main()` function.
 
 Contact
 -------

@@ -1236,19 +1236,13 @@ static int write_o65(image_info_t *info, const char *filename)
         return 0;
     }
 
-    /* Write the exported globals.  Only one for the entry point
-     * if it is not the same as the start of the .text segment. */
-    if (info->entry_point != info->text_address) {
-        if (o65_write_count(info->outfile, &(info->header), 1) < 0)
-            return 0;
-        if (o65_write_exported_symbol
-                (info->outfile, &(info->header), "_start",
-                 O65_SEGID_TEXT, info->entry_point) < 0) {
-            return 0;
-        }
-    } else {
-        if (o65_write_count(info->outfile, &(info->header), 0) < 0)
-            return 0;
+    /* Write the exported globals.  Only one so far for the main entry point. */
+    if (o65_write_count(info->outfile, &(info->header), 1) < 0)
+        return 0;
+    if (o65_write_exported_symbol
+            (info->outfile, &(info->header), "main",
+             O65_SEGID_TEXT, info->entry_point) < 0) {
+        return 0;
     }
 
     /* Clean up and exit */
