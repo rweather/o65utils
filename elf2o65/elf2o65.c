@@ -151,6 +151,18 @@ typedef struct
     /** Number of symbols in the ELF file. */
     size_t num_symbols;
 
+    /** Array of ELF symbol name identifiers for undefined references. */
+    Elf32_Word *undef_name_ids;
+
+    /** Names of the ELF symbols for undefined references. */
+    char **undef_names;
+
+    /** Number of undefined names that have been added to ".o65" so far. */
+    size_t num_undef_names;
+
+    /** Maximum number of undefined names before reallocating the table. */
+    size_t max_undef_names;
+
     /** Non-zero for "hosted" mode where the runtime loader provides the
      *  addresses of the llvm-mos imaginary registers. */
     int hosted;
@@ -370,6 +382,12 @@ static void free_image(image_info_t *info)
     close(info->fd);
     if (info->text_segment)
         free(info->text_segment);
+    if (info->reloc)
+        free(info->reloc);
+    if (info->undef_name_ids)
+        free(info->undef_name_ids);
+    if (info->undef_names)
+        free(info->undef_names);
 }
 
 /**
@@ -756,6 +774,58 @@ static void add_o65_relocation(image_info_t *info, const o65_reloc_t *reloc)
 }
 
 /**
+ * @brief Resolves an undefined symbol to an index in the external
+ * references table of the final ".o65" file.
+ *
+ * @param[in,out] info Information about the image we are converting.
+ * @param[in] name Symbol table index for the name of the undefined symbol.
+ * @param[out] id Returns the identifier for the undefined symbol in ".o65".
+ *
+ * @return Non-zero if the symbol was resolved, zero on error.
+ */
+static int resolve_undefined(image_info_t *info, Elf32_Word name, uint32_t *id)
+{
+    size_t index;
+    char *symname;
+
+    /* Do we already have a reference to this name? */
+    for (index = 0; index < info->num_undef_names; ++index) {
+        if (info->undef_name_ids[index] == name) {
+            *id = index + (info->hosted ? 1 : 0);
+            return 1;
+        }
+    }
+
+    /* Get the name of the symbol from the ELF file */
+    if (!(info->strtab) || name >= info->strtab->d_size) {
+        fprintf(stderr, "%s: invalid string name offset %lu\n",
+                info->filename, (unsigned long)name);
+        *id = 0;
+        return 0;
+    }
+    symname = info->strtab->d_buf + name;
+
+    /* Add the symbol to the external reference table for ".o65" */
+    if (info->num_undef_names >= info->max_undef_names) {
+        info->max_undef_names += 32;
+        info->undef_name_ids = (Elf32_Word *)
+            realloc(info->undef_name_ids,
+                    info->max_undef_names * sizeof(Elf32_Word));
+        info->undef_names = (char **)
+            realloc(info->undef_names,
+                    info->max_undef_names * sizeof(char *));
+        if (!(info->undef_name_ids) || !(info->undef_names)) {
+            fprintf(stderr, "out of memory\n");
+            exit(1);
+        }
+    }
+    info->undef_name_ids[info->num_undef_names] = name;
+    info->undef_names[info->num_undef_names] = symname;
+    *id = (info->num_undef_names)++ + (info->hosted ? 1 : 0);
+    return 1;
+}
+
+/**
  * @brief Compares two relocations on ascending order of virtual address.
  *
  * @param[in] r1 Points to the first relocation.
@@ -888,12 +958,17 @@ static void section_callback_reloc
             continue;
         } else if (sym->st_shndx == SHN_UNDEF) {
             /* Undefined symbol */
-            /* TODO: Add the name to the external references list */
-            fprintf(stderr, "%s: undefined symbols are not supported yet\n",
-                    info->filename);
-            info->flag = 0;
-            info->last_reloc_address = address;
-            continue;
+            if (resolve_undefined(info, sym->st_name, &(out_rel.undefid))) {
+                out_rel.type = O65_SEGID_UNDEF;
+                if (out_rel.undefid >= 0x10000U) {
+                    /* We will need 32-bit offsets in the final ".o65" file */
+                    info->header.mode |= O65_MODE_32BIT;
+                }
+            } else {
+                info->flag = 0;
+                info->last_reloc_address = address;
+                continue;
+            }
         } else if (symbol_address >= info->zeropage_address &&
                    symbol_address < (info->zeropage_address + info->zeropage_size)) {
             out_rel.type = O65_SEGID_ZEROPAGE;
@@ -1068,6 +1143,8 @@ static int write_relocations
  */
 static int write_o65(image_info_t *info, const char *filename)
 {
+    size_t index;
+
     /* Open the output file */
     if ((info->outfile = fopen(filename, "wb")) == NULL)
         return 0;
@@ -1131,15 +1208,24 @@ static int write_o65(image_info_t *info, const char *filename)
     /* Write the external references list */
     if (info->hosted) {
         /* We need an extra external for the imaginary register table */
-        if (o65_write_count(info->outfile, &(info->header), 1) < 0)
+        if (o65_write_count
+                (info->outfile, &(info->header), info->num_undef_names + 1) < 0) {
             return 0;
-        if (o65_write_string(info->outfile, "__IMAG_REGS") < 0)
+        }
+        if (o65_write_string(info->outfile, "__IMAG_REGS") < 0) {
             return 0;
+        }
     } else {
-        if (o65_write_count(info->outfile, &(info->header), 0) < 0)
+        if (o65_write_count
+                (info->outfile, &(info->header), info->num_undef_names) < 0) {
             return 0;
+        }
     }
-    /* TODO: Handle external references from the code. */
+    for (index = 0; index < info->num_undef_names; ++index) {
+        if (o65_write_string(info->outfile, info->undef_names[index]) < 0) {
+            return 0;
+        }
+    }
 
     /* Write the relocation tables */
     if (!write_relocations(info, info->reloc, info->text_reloc_size)) {

@@ -120,7 +120,7 @@ typedef struct
  * If "offset" is 255, then the relocation is a skip ahead by 254 bytes
  * and the other fields are not important.
  *
- * The "undefid" only makes sense if the segment ID is O65_SEGID_UNKNOWN.
+ * The "undefid" only makes sense if the segment ID is O65_SEGID_UNDEF.
  * Otherwise it is not used.
  *
  * The "extra" field is only useful for HIGH and SEG relocations which

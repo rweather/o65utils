@@ -92,10 +92,20 @@ The ELF file must have been created with a linker script that outputs the
 sections in a form that `elf2o65` can understand.  Arbitrary ELF files
 from llvm-mos will not work without modifications to the linker script.
 
-The "link" directory in this repository contains some example linker
-scripts.
+The "link" directory in this repository contains an example linker
+script called `o65reloc.ld`.  It may need some modification for specific
+platforms.  The simplest method to convert a program's ELF file into
+`.o65` format is:
 
-    mos-sim-clang -Os -Wl,-emit-relocs -Tlink.ld -o example example.c
+    mos-sim-clang -Os -To65reloc.ld -Wl,-emit-relocs -o example example.c
+    elf2o65 example.elf example.o65
+
+If the progam has external references to functions in the operating
+system, then add the `-Wl,--unresolved-symbols=ignore-all` option
+and `elf2o65` will add the externals to the output file:
+
+    mos-common-clang -Os -To65reloc.ld -Wl,-emit-relocs \
+        -Wl,--unresolved-symbols=ignore-all -o example example.c
     elf2o65 example.elf example.o65
 
 Extensions to the .o65 format
