@@ -185,6 +185,7 @@ int main(int argc, char *argv[])
     };
     const char *input_file;
     const char *output_file;
+    char output_file_buf[BUFSIZ];
     int fd;
     int bsszero = 0;
     Elf *elf;
@@ -227,13 +228,27 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* Need at least two filename options */
-    if ((argc - optind) < 2) {
+    /* Need one or two filenames */
+    if ((argc - optind) < 1) {
         usage(progname);
         return 1;
     }
     input_file = argv[optind];
-    output_file = argv[optind + 1];
+    if ((argc - optind) >= 2) {
+        output_file = argv[optind + 1];
+    } else {
+        /* Synthesise an output filename by removing .elf from the input name,
+         * or by adding .o65 if the input filename doesn't end in .elf. */
+        size_t len = strlen(input_file);
+        if (len > 4 && !strcmp(input_file + len - 4, ".elf")) {
+            strncpy(output_file_buf, input_file, sizeof(output_file_buf));
+            output_file_buf[len - 4] = '\0';
+        } else {
+            snprintf(output_file_buf, sizeof(output_file_buf),
+                     "%s.o65", input_file);
+        }
+        output_file = output_file_buf;
+    }
 
     /* Make sure that we are using the correct version of the ELF library */
     if (elf_version(EV_CURRENT) == EV_NONE) {
@@ -298,7 +313,7 @@ int main(int argc, char *argv[])
  */
 static void usage(const char *progname)
 {
-    fprintf(stderr, "Usage: %s [options] input.elf output.o65]\n\n", progname);
+    fprintf(stderr, "Usage: %s [options] input.elf [output.o65]\n\n", progname);
 
     fprintf(stderr, "    --author-name AUTHOR, -a AUTHOR\n");
     fprintf(stderr, "        Set the name of the author in the header options.\n\n");
