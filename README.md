@@ -179,16 +179,24 @@ number, and replace the byte with the actual imaginary register address.
 
 ### Entry Point
 
-Program binaries in `.o65` format that are used by
-[GeckOS/A65](http://www.6502.org/users/andre/osa/index.html)
-export a global symbol called `main` for the entry point.  If this global
-symbol is not present, then the start of the text segment is assumed
-to be the entry point.
+Program binaries in `.o65` format that use
+[lib6502](http://www.6502.org/users/andre/lib6502/lib6502.html)
+export a global symbol called `main` for the entry point.
+This entry point is assumed to take a pointer to the command-line
+argument array in the A/Y register pair and to return a Unix-style
+exit status code in A.
 
 Note that the `main()` function in a C program may not actually be at
 the entry point address.  There may be `crt0` logic that executes before
 `main()`.  If such logic exists, the `main` global symbol in a `.o65`
 file must be the `crt0` entry point, not the address of the `main()` function.
+
+If the program's entry point is not compatible with lib6502's calling
+conventions, then it should be called something other than `main`.
+
+The `elf2o65` tool will export a symbol called `_start` if the
+ELF entry point is not at the start of the text segment, and the
+program is not compatible with lib6502.
 
 Contact
 -------

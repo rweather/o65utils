@@ -1158,6 +1158,7 @@ static int write_relocations
  */
 static int write_o65(image_info_t *info, const char *filename)
 {
+    int lib6502 = 0;
     size_t index;
 
     /* Open the output file */
@@ -1240,6 +1241,11 @@ static int write_o65(image_info_t *info, const char *filename)
         if (o65_write_string(info->outfile, info->undef_names[index]) < 0) {
             return 0;
         }
+        if (!strcmp(info->undef_names[index], "LIB6502")) {
+            /* This appears to be a program that uses lib6502.  Make sure
+             * that we add a lib6502-compatible "main" entry point below. */
+            lib6502 = 1;
+        }
     }
 
     /* Write the relocation tables */
@@ -1252,12 +1258,33 @@ static int write_o65(image_info_t *info, const char *filename)
     }
 
     /* Write the exported globals.  Only one so far for the main entry point. */
-    if (o65_write_count(info->outfile, &(info->header), 1) < 0)
-        return 0;
-    if (o65_write_exported_symbol
-            (info->outfile, &(info->header), "main",
-             O65_SEGID_TEXT, info->entry_point) < 0) {
-        return 0;
+    if (lib6502) {
+        /* Entry point must be called "main" when using lib6502 */
+        if (o65_write_count(info->outfile, &(info->header), 1) < 0) {
+            return 0;
+        }
+        if (o65_write_exported_symbol
+                (info->outfile, &(info->header), "main",
+                 O65_SEGID_TEXT, info->entry_point) < 0) {
+            return 0;
+        }
+    } else if (info->entry_point != info->text_address) {
+        /* Entry point is not at the start of the text segment,
+         * so output an exported global called "_start" */
+        if (o65_write_count(info->outfile, &(info->header), 1) < 0) {
+            return 0;
+        }
+        if (o65_write_exported_symbol
+                (info->outfile, &(info->header), "_start",
+                 O65_SEGID_TEXT, info->entry_point) < 0) {
+            return 0;
+        }
+    } else {
+        /* Entry point is at the start of the text segment,
+         * so there is no need to name it explicitly. */
+        if (o65_write_count(info->outfile, &(info->header), 0) < 0) {
+            return 0;
+        }
     }
 
     /* Clean up and exit */
