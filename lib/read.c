@@ -48,26 +48,20 @@ int o65_read_header(FILE *file, o65_header_t *header)
     /* Read the first 8 bytes and byte-swap the mode field */
     if (fread(buf, 1, 8, file) != 8)
         return -1;
-    header->marker[0] = buf[0];
-    header->marker[1] = buf[1];
-    header->magic[0]  = buf[2];
-    header->magic[1]  = buf[3];
-    header->magic[2]  = buf[4];
-    header->version   = buf[5];
-    header->mode      = o65_read_uint16(buf + 6);
+    header->mode = o65_read_uint16(buf + 6);
 
-    /* Verify the marker, magic number, and version fields */
-    if (header->marker[0] != 0x01)
+    /* Verify the magic number */
+    if (buf[0] != O65_MAGIC_1)      /* 0x01 */
         return 0;
-    if (header->marker[1] != 0x00)
+    if (buf[1] != O65_MAGIC_2)      /* 0x00 */
         return 0;
-    if (header->magic[0] != 0x6F)   /* o */
+    if (buf[2] != O65_MAGIC_3)      /* o */
         return 0;
-    if (header->magic[1] != 0x36)   /* 6 */
+    if (buf[3] != O65_MAGIC_4)      /* 6 */
         return 0;
-    if (header->magic[2] != 0x35)   /* 5 */
+    if (buf[4] != O65_MAGIC_5)      /* 5 */
         return 0;
-    if (header->version != 0)
+    if (buf[5] != O65_MAGIC_6)      /* 0x00 */
         return 0;
 
     /* The rest of the header uses either 16-bit or 32-bit fields */
