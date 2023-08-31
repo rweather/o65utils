@@ -1018,11 +1018,13 @@ static void section_callback_reloc
         case R_MOS_ADDR8:
         case R_MOS_ADDR16_LO:
         case R_MOS_ADDR24_SEGMENT_LO:
+        case R_MOS_IMM8:
             out_rel.type |= O65_RELOC_LOW;
             break;
 
         case R_MOS_ADDR16:
         case R_MOS_ADDR24_SEGMENT:
+        case R_MOS_IMM16:
             out_rel.type |= O65_RELOC_WORD;
             break;
 
@@ -1042,8 +1044,6 @@ static void section_callback_reloc
             break;
 
         case R_MOS_NONE:
-        case R_MOS_IMM8:
-        case R_MOS_IMM16:
         case R_MOS_PCREL8:
         case R_MOS_FK_DATA_4:
         case R_MOS_FK_DATA_8:
