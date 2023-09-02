@@ -35,6 +35,14 @@ It can also be used on multiple files:
 
     o65dump hello.o65 goodbye.o65 ...
 
+If the `-d` option is supplied, the contents of the text segment will
+be disassembled for CPU's in the 6502 family:
+
+    o65dump -d hello.o65
+
+If the CPU type cannot be disassembled, the contents of the text
+segment will be dumped in hexadecimal instead.
+
 ### o65reloc
 
 The `o65reloc` program can be used to convert a `.o65` file into a
