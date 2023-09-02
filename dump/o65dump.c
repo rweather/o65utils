@@ -26,26 +26,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int disassemble = 0;
+
 static int dump_file(const char *filename);
 
 int main(int argc, char *argv[])
 {
     int arg;
+    int first;
+    int named;
     int exit_val = 0;
 
-    /* Need at least one command-line argument */
-    if (argc <= 1) {
-        fprintf(stderr, "Usage: %s file1 ...\n", argv[0]);
+    /* Need at least one command-line argument other than "-d" */
+    arg = 1;
+    if (arg < argc && (!strcmp(argv[1], "-d") || !strcmp(argv[1], "--disassemble"))) {
+        disassemble = 1;
+        ++arg;
+    }
+    if (arg >= argc) {
+        fprintf(stderr, "Usage: %s [-d|--disassemble] file1 ...\n", argv[0]);
         return 1;
     }
 
     /* Process each of the files in turn */
-    for (arg = 1; arg < argc; ++arg) {
-        if (arg > 1)
+    first = 1;
+    named = (argc - arg) > 1;
+    for (; arg < argc; ++arg) {
+        if (first)
+            first = 0;
+        else
             printf("\n");
-        if (argc > 2)
-            printf("%s:\n\n", argv[1]);
-        if (!dump_file(argv[1]))
+        if (named)
+            printf("%s:\n\n", argv[arg]);
+        if (!dump_file(argv[arg]))
             exit_val = 1;
     }
     return exit_val;
@@ -199,9 +212,165 @@ static void dump_option(const o65_option_t *option)
     printf("\n");
 }
 
+#include "instructions.h"
+
+static void disasseble_segment
+    (const o65_header_t *header, o65_size_t addr,
+     const uint8_t *data, o65_size_t len)
+{
+    uint8_t opcode;
+    uint8_t opmode;
+    uint8_t oplen;
+    uint8_t posn;
+    uint16_t target;
+    const char *name;
+    while (len > 0) {
+        /* Fetch the next opcode */
+        opcode = data[0];
+
+        /* Find the name, length, and mode for the opcode */
+        name = op6502_names + op6502_to_name[opcode];
+        opmode = op6502_modes[opcode];
+        oplen = opmode >> 6;
+
+        /* Replace with illegal if there is insufficient data left */
+        if (len < oplen) {
+            name = "db ";
+            opmode = OP_ill;
+            oplen = 1;
+        }
+
+        /* Print the address */
+        if (header->mode & O65_MODE_32BIT)
+            printf("    %08lx:", (unsigned long)addr);
+        else
+            printf("    %04lx:", (unsigned long)addr);
+
+        /* Print the bytes of the instruction */
+        for (posn = 0; posn < oplen; ++posn) {
+            printf(" %02x", data[posn]);
+        }
+        while (posn < 4) {
+            printf("   ");
+            ++posn;
+        }
+
+        /* Print the opcode name.  Special case the 4-character opcodes */
+        if (opmode == OP_bit_zpg || opmode == OP_zpg_rel)
+            printf("%c%c%c%d ", name[0], name[1], name[2], (opcode & 0x70) >> 4);
+        else
+            printf("%c%c%c ", name[0], name[1], name[2]);
+
+        /* Print the operands */
+        switch (opmode) {
+        case OP_imp:
+            /* Implict operand - nothing to do */
+            break;
+
+        case OP_imm:
+            /* Immediate operand */
+            printf("#$%02x", data[1]);
+            break;
+
+        case OP_abs:
+            /* Absolute addressing mode */
+            printf("$%04x", o65_read_uint16(data + 1));
+            break;
+
+        case OP_abs_X:
+            /* Absolute addressing with X mode */
+            printf("$%04x,x", o65_read_uint16(data + 1));
+            break;
+
+        case OP_abs_Y:
+            /* Absolute addressing with Y mode */
+            printf("$%04x,y", o65_read_uint16(data + 1));
+            break;
+
+        case OP_X_ind:
+            /* Zero page indirect with X mode */
+            printf("($%02x,x)", data[1]);
+            break;
+
+        case OP_ind_Y:
+            /* Zero page indirect with Y mode */
+            printf("($%02x),y", data[1]);
+            break;
+
+        case OP_zpg:
+        case OP_bit_zpg:
+        case OP_ill:
+            /* Zero page addressing mode */
+            printf("$%02x", data[1]);
+            break;
+
+        case OP_zpg_X:
+            /* Zero page addressing with X mode */
+            printf("$%02x,x", data[1]);
+            break;
+
+        case OP_zpg_Y:
+            /* Zero page addressing with Y mode */
+            printf("$%02x,y", data[1]);
+            break;
+
+        case OP_rel:
+            /* Relative branch */
+            target = (addr + 2) + (int16_t)(int8_t)(data[1]);
+            printf("$%04x", target);
+            break;
+
+        case OP_ind:
+            /* Absolute indirect addressing mode */
+            printf("($%04x)", o65_read_uint16(data + 1));
+            break;
+
+        case OP_ind_zpg:
+            /* Zero page indirect mode with no indexing */
+            printf("($%02x)", data[1]);
+            break;
+
+        case OP_ind_abs_X:
+            /* Absolute indirect addressing with X mode */
+            printf("($%04x,x)", o65_read_uint16(data + 1));
+            break;
+
+        case OP_zpg_rel:
+            /* Zero page addressing plus a branch */
+            target = (addr + 3) + (int16_t)(int8_t)(data[2]);
+            printf("$%02x,$%04x", data[1], target);
+            break;
+
+        default:
+            printf("???");
+            break;
+        }
+        printf("\n");
+
+        /* Advance to the next opcode */
+        addr += oplen;
+        data += oplen;
+        len -= oplen;
+    }
+}
+
+static int can_disassemble(const o65_header_t *header)
+{
+    /* Determine if we can disassemble this CPU type */
+    switch (header->mode & O65_MODE_CPU_BITS) {
+    case O65_MODE_CPU_6502:
+    case O65_MODE_CPU_65C02:
+    case O65_MODE_CPU_65SC02:
+    case O65_MODE_CPU_EMUL:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static int dump_segment
     (FILE *file, const char *name, const o65_header_t *header,
-     o65_size_t base, o65_size_t len)
+     o65_size_t base, o65_size_t len, int is_text)
 {
     uint8_t *data = NULL;
     o65_size_t posn;
@@ -214,14 +383,18 @@ static int dump_segment
         return -1;
 
     /* Dump the contents of the segment */
-    posn = 0;
-    while ((len - posn) >= 16U) {
-        dump_hex_line(header, base, data + posn, 16);
-        base += 16;
-        posn += 16;
-    }
-    if (posn < len) {
-        dump_hex_line(header, base, data + posn, len - posn);
+    if (is_text && disassemble && can_disassemble(header)) {
+        disasseble_segment(header, base, data, len);
+    } else {
+        posn = 0;
+        while ((len - posn) >= 16U) {
+            dump_hex_line(header, base, data + posn, 16);
+            base += 16;
+            posn += 16;
+        }
+        if (posn < len) {
+            dump_hex_line(header, base, data + posn, len - posn);
+        }
     }
     free(data);
     return 1;
@@ -442,10 +615,10 @@ static int dump_image(FILE *file, const o65_header_t *header)
     }
 
     /* Dump the contents of the text and data segments */
-    result = dump_segment(file, ".text", header, header->tbase, header->tlen);
+    result = dump_segment(file, ".text", header, header->tbase, header->tlen, 1);
     if (result <= 0)
         return result;
-    result = dump_segment(file, ".data", header, header->dbase, header->dlen);
+    result = dump_segment(file, ".data", header, header->dbase, header->dlen, 0);
     if (result <= 0)
         return result;
 
