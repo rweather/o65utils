@@ -75,8 +75,8 @@
 #ifndef R_MOS_ADDR16_HI
 #define R_MOS_ADDR16_HI         5
 #endif
-#ifndef R_MOS_PCREL8
-#define R_MOS_PCREL8            6
+#ifndef R_MOS_PCREL_8
+#define R_MOS_PCREL_8           6
 #endif
 #ifndef R_MOS_ADDR24
 #define R_MOS_ADDR24            7
@@ -93,17 +93,20 @@
 #ifndef R_MOS_ADDR24_SEGMENT_HI
 #define R_MOS_ADDR24_SEGMENT_HI 11
 #endif
+#ifndef R_MOS_PCREL_16
+#define R_MOS_PCREL_16          12
+#endif
 #ifndef R_MOS_FK_DATA_4
-#define R_MOS_FK_DATA_4         12
+#define R_MOS_FK_DATA_4         13
 #endif
 #ifndef R_MOS_FK_DATA_8
-#define R_MOS_FK_DATA_8         13
+#define R_MOS_FK_DATA_8         14
 #endif
 #ifndef R_MOS_ADDR_ASCIZ
-#define R_MOS_ADDR_ASCIZ        14
+#define R_MOS_ADDR_ASCIZ        15
 #endif
 #ifndef R_MOS_IMM16
-#define R_MOS_IMM16             15
+#define R_MOS_IMM16             16
 #endif
 
 #endif

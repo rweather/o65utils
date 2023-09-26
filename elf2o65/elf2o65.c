@@ -1044,7 +1044,8 @@ static void section_callback_reloc
             break;
 
         case R_MOS_NONE:
-        case R_MOS_PCREL8:
+        case R_MOS_PCREL_8:
+        case R_MOS_PCREL_16:
         case R_MOS_FK_DATA_4:
         case R_MOS_FK_DATA_8:
         case R_MOS_ADDR_ASCIZ:
