@@ -50,6 +50,9 @@
 #ifndef EM_MOS_45GS02
 #define EM_MOS_45GS02           0x00004000
 #endif
+#ifndef EM_MOS_SPC700
+#define EM_MOS_SPC700           0x00020000
+#endif
 
 /* Section flags */
 #ifndef SHF_MOS_ZEROPAGE
@@ -107,6 +110,9 @@
 #endif
 #ifndef R_MOS_IMM16
 #define R_MOS_IMM16             16
+#endif
+#ifndef R_MOS_ADDR13
+#define R_MOS_ADDR13            17
 #endif
 
 #endif

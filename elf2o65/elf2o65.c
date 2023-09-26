@@ -465,11 +465,16 @@ static int is_zp_section(const Elf32_Shdr *shdr, const char *name)
 }
 
 /**
+ * @brief Special value for an invalid CPU.
+ */
+#define O65_INVALID_CPU 0xFFFF
+
+/**
  * @brief Maps the CPU type from ELF to ".o65".
  *
  * @param[in] elf_flags Flags for the ELF CPU type.
  *
- * @return The ".o65" CPU type.
+ * @return The ".o65" CPU type or O65_INVALID_CPU.
  *
  * The ".o65" format doesn't have as many CPU types as ELF.  We map to the
  * closest match and just make do.  A separate header option is used to
@@ -492,7 +497,13 @@ static uint16_t map_cpu_type(uint32_t elf_flags)
     if (elf_flags & EM_MOS_6502X) {
         return O65_MODE_CPU_UNDOC;
     }
-    return O65_MODE_CPU_6502;
+    if (elf_flags & EM_MOS_6502) {
+        return O65_MODE_CPU_6502;
+    }
+    /* SPC700 is similar to 6502 but not binary compatible, so it is
+     * not possible to convert SPC700 executables into ".o65" files.
+     * We detect SPC700 by the lack of the EM_MOS_6502 bit. */
+    return O65_INVALID_CPU;
 }
 
 /**
@@ -564,6 +575,10 @@ static int validate_elf(image_info_t *info)
 
     /* Map the CPU type to something ".o65" understands */
     info->header.mode = map_cpu_type(ehdr->e_flags);
+    if (info->header.mode == O65_INVALID_CPU) {
+        fprintf(stderr, "%s: ELF machine type is not binary-compatible with MOS6502\n", info->filename);
+        return 0;
+    }
 
     /* Set the ELF machine option if we don't have an exact CPU match */
     info->elf_machine.len = 8;
@@ -1025,6 +1040,7 @@ static void section_callback_reloc
         case R_MOS_ADDR16:
         case R_MOS_ADDR24_SEGMENT:
         case R_MOS_IMM16:
+        case R_MOS_ADDR13:
             out_rel.type |= O65_RELOC_WORD;
             break;
 
